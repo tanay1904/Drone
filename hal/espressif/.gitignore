@@ -1,6 +1,0 @@
-.config
-*.o
-*.pyc
-
-# zephyr blobs
-zephyr/blobs/lib

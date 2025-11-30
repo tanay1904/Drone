@@ -1,4 +1,0 @@
-#### Peripheral folder for devices
-* periph:MCXC041
-* periph1:MCXC141,MCXC142,MCXC242
-* periph2:MCXC143,MCXC144,MCXC243,MCXC244,MCXC443,MCXC444

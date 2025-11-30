@@ -1,4 +1,0 @@
-name: hal_rpi_pico
-build:
-  cmake-ext: True
-  kconfig-ext: True

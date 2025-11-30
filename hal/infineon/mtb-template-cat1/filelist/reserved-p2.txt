@@ -1,1 +1,0 @@
-files/cat1a/cyreservedresources.p2:config/cyreservedresources.list

@@ -136,12 +136,12 @@ jobs:
       
       - name: Build for QEMU Cortex-M3
         working-directory: project/firmware/${{ matrix.firmware }}
-        run: west build -p auto -b qemu_cortex_m3
+        run: west build -p auto -b mps3_an547
       
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.firmware }}-qemu_cortex_m3
+          name: ${{ matrix.firmware }}-mps3_an547
           path: |
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex

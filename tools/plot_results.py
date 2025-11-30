@@ -1,56 +1,80 @@
 #!/usr/bin/env python3
-# tools/plot_results.py
 import argparse
-import glob
+import csv
 import os
-import pandas as pd
+from typing import List, Dict
 import matplotlib.pyplot as plt
 
-def plot_latency_hist(csv_path, outdir):
-    df = pd.read_csv(csv_path)
-    # expect column 'latency_ms' or try to auto-detect plausible numeric columns
-    col = None
-    for candidate in ['latency_ms', 'latency', 'latency_us', 'time_ms']:
-        if candidate in df.columns:
-            col = candidate
-            break
-    if col is None:
-        # pick first numeric column
-        numeric = df.select_dtypes(include=['number']).columns
-        if len(numeric) == 0:
-            print(f"no numeric columns in {csv_path}, skipping")
-            return
-        col = numeric[0]
-    data = df[col].dropna()
-    if data.empty:
-        print(f"no data in {csv_path} for column {col}")
-        return
-    plt.figure(figsize=(6,4))
-    plt.hist(data, bins=40)
-    plt.title(os.path.basename(csv_path))
-    plt.xlabel(col)
-    plt.ylabel("count")
-    outpath = os.path.join(outdir, os.path.basename(csv_path).replace('.csv', f'.{col}.hist.png'))
+
+def read_csv(path: str) -> List[Dict[str, str]]:
+    """Read parsed CSV log file and return list of dictionaries."""
+    rows = []
+    with open(path, "r") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append(r)
+    return rows
+
+
+def extract_values(rows: List[Dict[str, str]], key: str) -> List[float]:
+    """Extract float values from a column in the CSV."""
+    return [float(row[key]) for row in rows if key in row]
+
+
+def plot_histogram(values: List[float], title: str, output_path: str) -> None:
+    """Plot a histogram of values."""
+    plt.figure(figsize=(8, 4))
+    plt.hist(values, bins=40)
+    plt.title(title)
+    plt.xlabel("Value")
+    plt.ylabel("Frequency")
     plt.tight_layout()
-    plt.savefig(outpath)
+    plt.savefig(output_path)
     plt.close()
-    print("Wrote", outpath)
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument('--input', required=True, help='path to parsed CSVs directory')
-    p.add_argument('--outdir', required=True, help='where to write plots')
-    args = p.parse_args()
-    os.makedirs(args.outdir, exist_ok=True)
-    csvs = glob.glob(os.path.join(args.input, '*.csv'))
-    if not csvs:
-        print("No CSVs found in", args.input)
-        return
-    for c in csvs:
-        try:
-            plot_latency_hist(c, args.outdir)
-        except Exception as e:
-            print("Failed plotting", c, e)
 
-if __name__ == '__main__':
+def plot_cdf(values: List[float], title: str, output_path: str) -> None:
+    """Plot a CDF curve."""
+    values_sorted = sorted(values)
+    n = len(values_sorted)
+    y_vals = [i / n for i in range(n)]
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(values_sorted, y_vals)
+    plt.title(title)
+    plt.xlabel("Value")
+    plt.ylabel("CDF")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--csv", required=True, help="Path to parsed CSV log")
+    parser.add_argument("--outdir", required=True, help="Output images directory")
+    args = parser.parse_args()
+
+    rows = read_csv(args.csv)
+
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+
+    # Example: latency histogram
+    if "latency_ns" in rows[0]:
+        values = extract_values(rows, "latency_ns")
+        plot_histogram(
+            values,
+            "Latency Distribution (ns)",
+            os.path.join(args.outdir, "latency_hist.png"),
+        )
+        plot_cdf(
+            values,
+            "Latency CDF (ns)",
+            os.path.join(args.outdir, "latency_cdf.png"),
+        )
+
+
+if __name__ == "__main__":
     main()

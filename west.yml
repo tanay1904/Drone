@@ -1,0 +1,11 @@
+manifest:
+  version: 1
+  defaults:
+    remote: local
+  projects:
+    - name: firmware/stm32n6
+      path: firmware/stm32n6
+    - name: firmware/stm32wl
+      path: firmware/stm32wl
+    - name: firmware/lora_e5
+      path: firmware/lora_e5

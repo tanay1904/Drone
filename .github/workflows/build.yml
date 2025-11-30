@@ -98,11 +98,11 @@ jobs:
         run: west update --narrow -o=--depth=1
       
       - name: Install Zephyr Python Requirements
-        working-directory: project
+        working-directory: project/firmware
         run: pip3 install --user -r zephyr/scripts/requirements.txt
       
       - name: Export Zephyr CMake Package
-        working-directory: project
+        working-directory: project/firmware
         run: west zephyr-export
       
       - name: Cache Zephyr SDK
@@ -128,7 +128,7 @@ jobs:
           ./setup.sh -t arm-zephyr-eabi -h -c
       
       - name: Set Environment Variables
-        working-directory: project
+        working-directory: project/firmware
         run: |
           echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
           echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV

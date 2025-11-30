@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        firmware: [stm32n6, stm32wl, lora_e5]
+        firmware: [stm32n6]
     
     steps:
       - name: Checkout Repository

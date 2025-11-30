@@ -4,7 +4,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(stm32n6_app)
 
 target_sources(app PRIVATE
-    src/main.c
+    src/main_measurements.c
     src/npu_stub.c
     src/control.c
 )

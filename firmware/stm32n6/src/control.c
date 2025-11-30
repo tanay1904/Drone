@@ -66,3 +66,9 @@ int control_get_status(void)
 {
     return control_ctx.state;
 }
+
+void control_loop_run(void)
+{
+    /* This function is called from main_measurements.c */
+    /* The actual control loop is in main_measurements.c */
+}

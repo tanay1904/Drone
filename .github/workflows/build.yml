@@ -43,16 +43,17 @@ jobs:
         run: |
           pip3 install --user west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Initialize Zephyr Workspace
+        run: |
+          west init -l firmware/${{ matrix.firmware }}
+          cd firmware
+          west update --narrow -o=--depth=1
       
       - name: Initialize Zephyr Workspace
         run: |
           west init -l firmware/${{ matrix.firmware }}
+          cd firmware
           west update --narrow -o=--depth=1
-      
-      - name: Install Zephyr Requirements
-        run: |
-          pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt
-          west zephyr-export
       
       - name: Download Zephyr SDK
         run: |

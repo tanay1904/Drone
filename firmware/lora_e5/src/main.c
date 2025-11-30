@@ -1,131 +1,120 @@
 /*
- * LoRa E5 Mini - Real Hardware Measurements
- * Logs airtime, RSSI, SNR, packet stats for paper data
+ * LoRa E5 Firmware - TX and RX Testing
+ * Based on Zephyr LoRa samples
  */
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/lora.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/sys/printk.h>
 
-LOG_MODULE_REGISTER(lora_measure, LOG_LEVEL_INF);
+#define DEFAULT_RADIO_NODE DT_ALIAS(lora0)
+#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 
-#define LORA_NODE DT_ALIAS(lora0)
-#define TEST_ITERATIONS 100
+/* Test configuration */
+#define TEST_TX_ENABLED 1
+#define TEST_RX_ENABLED 1
+#define TX_INTERVAL_MS 5000
+
+/* LoRa configuration */
+#define LORA_FREQUENCY 868100000  // EU868 MHz
+#define LORA_BANDWIDTH BW_125_KHZ
+#define LORA_DATARATE SF_7
+#define LORA_TX_POWER 14
+#define LORA_CODING_RATE CR_4_5
 
 static const struct device *lora_dev;
 
-/* Test payloads matching paper scenarios */
-static const size_t test_payloads[] = {100, 500, 1000, 2000};
-static const uint8_t test_sf[] = {7, 9, 12};
-
-/* Measurement logging */
-static void log_tx_measurement(size_t payload, uint8_t sf, uint32_t airtime_ms)
+static void lora_tx_test(void)
 {
-    printk("LORA_TX,payload,%zu,sf,%u,airtime_ms,%u\n", payload, sf, airtime_ms);
-}
-
-static void log_rx_measurement(size_t payload, int16_t rssi, int8_t snr)
-{
-    printk("LORA_RX,payload,%zu,rssi,%d,snr,%d\n", payload, rssi, snr);
-}
-
-/* Configure LoRa parameters */
-static int configure_lora(uint8_t sf, uint32_t freq)
-{
-    struct lora_modem_config cfg = {
-        .frequency = freq,
-        .bandwidth = BW_125_KHZ,
-        .datarate = sf,
-        .preamble_len = 8,
-        .coding_rate = CR_4_5,
-        .tx_power = 14,
-        .tx = true,
-    };
-    
-    return lora_config(lora_dev, &cfg);
-}
-
-/* Transmit test */
-static void test_transmit(size_t payload_size, uint8_t sf)
-{
-    uint8_t buffer[2048];
-    uint32_t start, end, airtime_ms;
+    uint8_t tx_data[] = "Hello LoRa!";
     int ret;
     
-    /* Fill test payload */
-    for (size_t i = 0; i < payload_size; i++) {
-        buffer[i] = (uint8_t)(i & 0xFF);
-    }
+    printk("TX: Sending %d bytes...\n", sizeof(tx_data));
     
-    /* Configure */
-    configure_lora(sf, 915000000);
-    
-    /* Measure airtime */
-    start = k_uptime_get_32();
-    ret = lora_send(lora_dev, buffer, payload_size);
-    end = k_uptime_get_32();
-    
+    ret = lora_send(lora_dev, tx_data, sizeof(tx_data));
     if (ret < 0) {
-        LOG_ERR("TX failed: %d", ret);
-        return;
+        printk("TX: Send failed: %d\n", ret);
+    } else {
+        printk("TX: Sent successfully\n");
     }
-    
-    airtime_ms = end - start;
-    log_tx_measurement(payload_size, sf, airtime_ms);
 }
 
-/* Receive test */
-static void test_receive(size_t expected_size)
+static void lora_rx_test(void)
 {
-    uint8_t buffer[2048];
+    uint8_t rx_buffer[256];
     int16_t rssi;
     int8_t snr;
     int ret;
     
-    ret = lora_recv(lora_dev, buffer, sizeof(buffer), K_SECONDS(10), &rssi, &snr);
+    printk("RX: Waiting for packets...\n");
+    
+    ret = lora_recv(lora_dev, rx_buffer, sizeof(rx_buffer), 
+                    K_SECONDS(10), &rssi, &snr);
     
     if (ret > 0) {
-        log_rx_measurement(ret, rssi, snr);
+        printk("RX: Received %d bytes, RSSI=%d, SNR=%d\n", ret, rssi, snr);
+        printk("RX: Data: %.*s\n", ret, rx_buffer);
+    } else if (ret == 0) {
+        printk("RX: Timeout\n");
+    } else {
+        printk("RX: Error: %d\n", ret);
     }
-}
-
-/* Run measurement suite */
-static void run_measurements(void)
-{
-    LOG_INF("Starting LoRa measurements");
-    printk("===LORA_MEASUREMENTS_START===\n");
-    
-    for (int iter = 0; iter < TEST_ITERATIONS; iter++) {
-        for (int p = 0; p < ARRAY_SIZE(test_payloads); p++) {
-            for (int s = 0; s < ARRAY_SIZE(test_sf); s++) {
-                test_transmit(test_payloads[p], test_sf[s]);
-                k_msleep(1000); /* Duty cycle */
-            }
-        }
-    }
-    
-    printk("===LORA_MEASUREMENTS_END===\n");
-    LOG_INF("Measurements complete");
 }
 
 int main(void)
 {
+    struct lora_modem_config config;
     int ret;
 
-    LOG_INF("LoRa E5 Mini - Hardware Measurements");
-    
-    lora_dev = DEVICE_DT_GET(LORA_NODE);
+    printk("LoRa E5 Firmware - TX/RX Test\n");
+
+#if DT_NODE_HAS_STATUS(DEFAULT_RADIO_NODE, okay)
+    lora_dev = DEVICE_DT_GET(DEFAULT_RADIO_NODE);
+#else
+    printk("LoRa device not found (QEMU build)\n");
+    printk("This firmware is for hardware only\n");
+    while (1) {
+        k_sleep(K_SECONDS(5));
+    }
+    return 0;
+#endif
+
     if (!device_is_ready(lora_dev)) {
-        LOG_ERR("LoRa device not ready");
-        return -ENODEV;
+        printk("LoRa device not ready\n");
+        return -1;
     }
 
-    run_measurements();
+    /* Configure LoRa modem */
+    config.frequency = LORA_FREQUENCY;
+    config.bandwidth = LORA_BANDWIDTH;
+    config.datarate = LORA_DATARATE;
+    config.preamble_len = 8;
+    config.coding_rate = LORA_CODING_RATE;
+    config.tx_power = LORA_TX_POWER;
+    config.tx = true;
 
+    ret = lora_config(lora_dev, &config);
+    if (ret < 0) {
+        printk("LoRa config failed: %d\n", ret);
+        return ret;
+    }
+
+    printk("LoRa configured: freq=%u Hz, SF%d, BW=%d kHz\n",
+           config.frequency, config.datarate, 125);
+
+    /* Main loop */
     while (1) {
-        k_msleep(1000);
+#if TEST_TX_ENABLED
+        lora_tx_test();
+        k_sleep(K_MSEC(TX_INTERVAL_MS));
+#endif
+
+#if TEST_RX_ENABLED
+        lora_rx_test();
+#endif
+        
+        k_sleep(K_SECONDS(1));
     }
 
     return 0;

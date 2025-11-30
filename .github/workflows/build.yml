@@ -60,8 +60,12 @@ jobs:
     needs: [validate]
     strategy:
       fail-fast: false
-      matrix:
-        firmware: [stm32n6]
+     matrix:
+        include:
+          - firmware: stm32n6
+            board: mps3_an547
+          - firmware: lora_e5
+            board: mps2_an521
     
     steps:
       - name: Checkout Repository
@@ -134,14 +138,14 @@ jobs:
           echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
           echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.5" >> $GITHUB_ENV
       
-      - name: Build for QEMU Cortex-M3
+      - name: Build for ${{ matrix.board }}
         working-directory: project/firmware/${{ matrix.firmware }}
-        run: west build -p auto -b mps3_an547
+        run: west build -p auto -b ${{ matrix.board }}
       
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.firmware }}-mps3_an547
+         name: ${{ matrix.firmware }}-${{ matrix.board }}
           path: |
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex

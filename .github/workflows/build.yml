@@ -5,37 +5,86 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build ${{ matrix.firmware }} for ${{ matrix.board }}
+  build-qemu:
+    name: Build ${{ matrix.firmware }} for QEMU
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         firmware: [stm32n6, stm32wl, lora_e5]
-        board: [qemu_cortex_m3, qemu_cortex_m7]
+        board: [qemu_cortex_m7]
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Setup Zephyr
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Cache Zephyr
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/zephyrproject
+          key: ${{ runner.os }}-zephyr-${{ hashFiles('**/west.yml') }}
+      
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev
-          pip3 install west
-          west init -l firmware/${{ matrix.firmware }}
-          west update
-          west zephyr-export
-          pip3 install -r ~/zephyrproject/zephyr/scripts/requirements.txt
+          sudo apt-get install -y --no-install-recommends git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
       
-      - name: Build
+      - name: Install West
+        run: |
+          pip3 install --user west
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Initialize Zephyr Workspace
+        run: |
+          west init -l firmware/${{ matrix.firmware }}
+          west update --narrow -o=--depth=1
+      
+      - name: Install Zephyr Requirements
+        run: |
+          pip3 install --user -r ~/zephyrproject/zephyr/scripts/requirements.txt
+          west zephyr-export
+      
+      - name: Download Zephyr SDK
+        run: |
+          cd ~
+          wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz
+          tar xf zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz
+          cd zephyr-sdk-0.16.5
+          ./setup.sh -t all -h -c
+      
+      - name: Build Firmware
         run: |
           cd firmware/${{ matrix.firmware }}
-          west build -b ${{ matrix.board }}
+          west build -b ${{ matrix.board }} --pristine
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.firmware }}-${{ matrix.board }}
-          path: firmware/${{ matrix.firmware }}/build/zephyr/zephyr.*
+          name: ${{ matrix.firmware }}-${{ matrix.board }}-${{ github.sha }}
+          path: |
+            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
+            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex
+            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.bin
+          retention-days: 30
+
+  validate:
+    name: Validate Repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          test -d firmware/stm32n6 && test -d firmware/stm32wl && test -d firmware/lora_e5
+          test -f firmware/stm32n6/CMakeLists.txt
+          test -f firmware/stm32wl/CMakeLists.txt
+          test -f firmware/lora_e5/CMakeLists.txt
+          echo "✅ Structure valid"

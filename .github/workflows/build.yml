@@ -93,8 +93,8 @@ jobs:
         working-directory: project
         run: west init -l firmware/${{ matrix.firmware }}
       
-      - name: Update West Dependencies
-        working-directory: project
+     - name: Update West Dependencies
+        working-directory: project/firmware
         run: west update --narrow -o=--depth=1
       
       - name: Install Zephyr Python Requirements

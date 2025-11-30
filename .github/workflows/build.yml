@@ -8,84 +8,142 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-qemu:
-    name: Build ${{ matrix.firmware }} for QEMU
+  validate:
+    name: Validate Repository Structure
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check All Required Files
+        run: |
+          echo "Checking firmware directories..."
+          for fw in stm32n6 stm32wl lora_e5; do
+            test -d "firmware/$fw" || { echo "Missing firmware/$fw"; exit 1; }
+            test -f "firmware/$fw/CMakeLists.txt" || { echo "Missing firmware/$fw/CMakeLists.txt"; exit 1; }
+            test -f "firmware/$fw/prj.conf" || { echo "Missing firmware/$fw/prj.conf"; exit 1; }
+            test -f "firmware/$fw/west.yml" || { echo "Missing firmware/$fw/west.yml"; exit 1; }
+            test -f "firmware/$fw/src/main.c" || { echo "Missing firmware/$fw/src/main.c"; exit 1; }
+            echo "✅ $fw structure valid"
+          done
+          echo "✅ All firmware structure checks passed"
+
+  lint-tools:
+    name: Lint Python Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install Linters
+        run: pip install flake8
+      - name: Run Flake8
+        run: flake8 tools/*.py --max-line-length=100 --extend-ignore=E501,W503
+        continue-on-error: true
+
+  test-tools:
+    name: Test Python Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Test Airtime Calculator
+        run: |
+          python3 tools/calculate_lora_airtime.py --payload 100 --sf 7 --bw 125
+          python3 tools/calculate_lora_airtime.py --payload 500 --sf 9 --bw 125
+          echo "✅ Tools working"
+
+  build-firmware:
+    name: Build ${{ matrix.firmware }}
+    runs-on: ubuntu-latest
+    needs: [validate]
     strategy:
       fail-fast: false
       matrix:
         firmware: [stm32n6, stm32wl, lora_e5]
-        board: [qemu_cortex_m7]
     
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          path: project
       
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
       
-      - name: Cache Zephyr
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/zephyrproject
-          key: ${{ runner.os }}-zephyr-${{ hashFiles('**/west.yml') }}
-      
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget python3-dev python3-pip python3-setuptools python3-wheel xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          sudo apt-get install -y --no-install-recommends \
+            git cmake ninja-build gperf ccache dfu-util \
+            device-tree-compiler wget python3-dev python3-pip \
+            python3-setuptools python3-wheel xz-utils file \
+            make gcc gcc-multilib g++-multilib libsdl2-dev \
+            libmagic1 qemu-system-arm
       
       - name: Install West
         run: |
-          pip3 install --user west
+          pip3 install --user -U west
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - name: Initialize Zephyr Workspace
-        run: |
-          west init -l firmware/${{ matrix.firmware }}
-          cd firmware
-          west update --narrow -o=--depth=1
       
-      - name: Initialize Zephyr Workspace
-        run: |
-          west init -l firmware/${{ matrix.firmware }}
-          cd firmware
-          west update --narrow -o=--depth=1
+      - name: Initialize West Workspace
+        working-directory: project
+        run: west init -l firmware/${{ matrix.firmware }}
       
-      - name: Download Zephyr SDK
+      - name: Update West Dependencies
+        working-directory: project
+        run: west update --narrow -o=--depth=1
+      
+      - name: Install Zephyr Python Requirements
+        working-directory: project
+        run: pip3 install --user -r zephyr/scripts/requirements.txt
+      
+      - name: Export Zephyr CMake Package
+        working-directory: project
+        run: west zephyr-export
+      
+      - name: Cache Zephyr SDK
+        id: cache-sdk
+        uses: actions/cache@v3
+        with:
+          path: ~/zephyr-sdk-0.16.5
+          key: ${{ runner.os }}-zephyr-sdk-0.16.5
+      
+      - name: Download and Install Zephyr SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
         run: |
           cd ~
           wget -q https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz
           tar xf zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz
           cd zephyr-sdk-0.16.5
-          ./setup.sh -t all -h -c
+          ./setup.sh -t arm-zephyr-eabi -h -c
       
-      - name: Build Firmware
+      - name: Setup Zephyr SDK from Cache
+        if: steps.cache-sdk.outputs.cache-hit == 'true'
         run: |
-          cd firmware/${{ matrix.firmware }}
-          west build -b ${{ matrix.board }} --pristine
+          cd ~/zephyr-sdk-0.16.5
+          ./setup.sh -t arm-zephyr-eabi -h -c
       
-      - name: Upload Artifacts
+      - name: Set Environment Variables
+        working-directory: project
+        run: |
+          echo "ZEPHYR_BASE=$PWD/zephyr" >> $GITHUB_ENV
+          echo "ZEPHYR_TOOLCHAIN_VARIANT=zephyr" >> $GITHUB_ENV
+          echo "ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.5" >> $GITHUB_ENV
+      
+      - name: Build for QEMU Cortex-M3
+        working-directory: project/firmware/${{ matrix.firmware }}
+        run: west build -p auto -b qemu_cortex_m3
+      
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.firmware }}-${{ matrix.board }}-${{ github.sha }}
+          name: ${{ matrix.firmware }}-qemu_cortex_m3
           path: |
-            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
-            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex
-            firmware/${{ matrix.firmware }}/build/zephyr/zephyr.bin
+            project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
+            project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex
+            project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.bin
           retention-days: 30
-
-  validate:
-    name: Validate Repository
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          test -d firmware/stm32n6 && test -d firmware/stm32wl && test -d firmware/lora_e5
-          test -f firmware/stm32n6/CMakeLists.txt
-          test -f firmware/stm32wl/CMakeLists.txt
-          test -f firmware/lora_e5/CMakeLists.txt
-          echo "✅ Structure valid"

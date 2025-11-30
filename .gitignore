@@ -1,0 +1,65 @@
+# Build artifacts
+/firmware/zephyr-apps/*/build/
+/firmware/zephyr-apps/*/build-*/
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# Zephyr-specific
+.west/
+.venv/
+zephyr/.git/
+bootloader/
+modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.ipynb_checkpoints/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Analysis outputs
+/analysis/*.png
+/analysis/*.pdf
+/analysis/output/
+/analysis/results/
+
+# QEMU logs and temporary files
+/qemu/*.log
+/qemu/qemu-*.sock
+*.qcow2
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Large model files (optional - uncomment if models shouldn't be tracked)
+# /models/*.tflite
+# /models/*.onnx
+
+# CI temporary files
+.github/workflows/*.log
+
+# System files
+Thumbs.db
+.directory
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

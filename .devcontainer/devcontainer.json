@@ -1,0 +1,45 @@
+{
+  "name": "Zephyr RTOS Development",
+  "image": "ghcr.io/zephyrproject-rtos/ci:v0.26.6",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    }
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "trond-snekvik.gnu-mapfiles",
+        "dan-c-underwood.arm",
+        "marus25.cortex-debug"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "black",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  
+  "remoteUser": "user",
+  
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=cached"
+  ],
+  
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  
+  "forwardPorts": [8888]
+}

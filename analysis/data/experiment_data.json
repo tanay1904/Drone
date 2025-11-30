@@ -1,0 +1,43 @@
+{
+  "experiment_id": "exp_001",
+  "timestamp": "2024-11-30T10:00:00Z",
+  "platform": "STM32N6",
+  "firmware_version": "1.0.0",
+  "measurements": [
+    {
+      "id": 1,
+      "latency": 12.5,
+      "throughput": 45.2,
+      "power": 125.3
+    },
+    {
+      "id": 2,
+      "latency": 13.1,
+      "throughput": 44.8,
+      "power": 127.1
+    },
+    {
+      "id": 3,
+      "latency": 11.9,
+      "throughput": 46.1,
+      "power": 124.5
+    },
+    {
+      "id": 4,
+      "latency": 12.8,
+      "throughput": 45.5,
+      "power": 126.2
+    },
+    {
+      "id": 5,
+      "latency": 12.3,
+      "throughput": 45.9,
+      "power": 125.8
+    }
+  ],
+  "metadata": {
+    "test_duration_s": 60,
+    "sample_rate_hz": 10,
+    "notes": "Example experiment data"
+  }
+}

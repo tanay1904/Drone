@@ -60,7 +60,7 @@ jobs:
     needs: [validate]
     strategy:
       fail-fast: false
-     matrix:
+      matrix:
         include:
           - firmware: stm32n6
             board: mps3_an547
@@ -145,7 +145,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-         name: ${{ matrix.firmware }}-${{ matrix.board }}
+          name: ${{ matrix.firmware }}-${{ matrix.board }}
           path: |
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.elf
             project/firmware/${{ matrix.firmware }}/build/zephyr/zephyr.hex

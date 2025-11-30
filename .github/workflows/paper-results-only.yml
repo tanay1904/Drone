@@ -35,7 +35,7 @@ jobs:
           ls -lR paper_results/ 2>/dev/null || echo "Directory not found"
       
       - name: Upload Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ieee-paper-results

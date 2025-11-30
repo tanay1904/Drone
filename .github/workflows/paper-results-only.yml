@@ -1,0 +1,38 @@
+name: Generate Paper Results
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  generate-results:
+    name: Generate IEEE Paper Results
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install numpy matplotlib scipy pandas
+      
+      - name: Generate All Results
+        run: |
+          cd analysis
+          python3 generate_paper_results.py --output-dir ../paper_results
+      
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: ieee-paper-results
+          path: |
+            paper_results/results/*.json
+            paper_results/latex_fragments/*.tex
+            paper_results/figures/*.pdf
+            paper_results/RESULTS_SUMMARY.md

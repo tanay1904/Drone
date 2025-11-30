@@ -93,7 +93,7 @@ jobs:
         working-directory: project
         run: west init -l firmware/${{ matrix.firmware }}
       
-     - name: Update West Dependencies
+      - name: Update West Dependencies
         working-directory: project/firmware
         run: west update --narrow -o=--depth=1
       

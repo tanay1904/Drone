@@ -1,0 +1,25 @@
+/ {
+    aliases {
+        lora0 = &sx1276;
+    };
+};
+
+&spi1 {
+    status = "okay";
+
+    cs-gpios = <&gpioa 4 GPIO_ACTIVE_LOW>;
+
+    sx1276: sx1276@0 {
+        compatible = "semtech,sx1276";
+        reg = <0>;
+
+        spi-max-frequency = <8000000>;
+
+        reset-gpios = <&gpioa 1 GPIO_ACTIVE_LOW>;
+        dio-gpios   = <&gpioa 2 GPIO_ACTIVE_HIGH>;
+
+        power-amplifier-output = "pa-boost";
+
+        status = "okay";
+    };
+};
